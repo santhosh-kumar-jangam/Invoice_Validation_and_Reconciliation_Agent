@@ -1,0 +1,3 @@
+from subagents.dataextractoragent import data_extractor_agent
+
+root_agent = data_extractor_agent
