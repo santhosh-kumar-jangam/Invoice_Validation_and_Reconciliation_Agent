@@ -1,0 +1,37 @@
+1. Mandatory Field Presence
+Invoice Number: Must be present, unique, and non-empty for traceability.
+Invoice Date: Must exist and be in a valid date format (DD-MM-YYYY or ISO).
+Vendor Details: Name, address, GSTIN/PAN must be complete and accurate.
+Client Details: Name and address must be present and verifiable.
+Product/Service Details: Invoice should list all items/services with clear descriptions.
+Subtotal: Total amount before tax must be stated and non-negative.
+Tax Details: Each tax component (e.g., CGST, SGST) must be listed with rates and amounts.
+Grand Total: Total payable amount must be present and reconcile with subtotal plus taxes.
+Currency: Currency code must be specified and consistent with amounts shown.
+Bank Details: Bank name and account number must be complete if payment details are present.
+
+2. Data Format and Type Checks
+Dates: Invoice, due, and payment dates must be valid and formatted uniformly.
+Monetary Values: All financial figures (unit prices, totals, taxes) must be numeric and non-negative.
+Tax Identification Numbers: GSTIN, PAN, IFSC codes must adhere to prescribed formats.
+Quantities: Product quantities should be integers greater than zero.
+
+3. Mathematical Accuracy and Consistency
+Subtotal Calculation: Sum of all product line totals should equal the subtotal (allowing minor rounding differences).
+Tax Totals: Tax amounts must accurately reflect percentages applied to the taxable amount.
+Grand Total Validation: Confirm grand total equals subtotal plus total tax plus any additional charges minus discounts.
+Date Logic: Due date should not precede invoice date.
+Currency Consistency: Currency symbol and code should match across the invoice.
+
+4. Bank and Payment Information Checks
+Incomplete Bank Information:
+If payment instructions exist, absence of bank name, account number, or IFSC code must be flagged.
+Payment Terms Missing:
+Payment terms or conditions missing where normally required should be identified.
+
+5. Field-Level Redundancy and Duplication
+Duplicated Fields/Values:
+Identify if any field (such as Invoice Number) appears in multiple places with different values—flag if any inconsistency.
+
+6. Encoding Artifacts:
+Flag corrupted characters (e.g., replacement �, “??”, “█” or similar) in any text fields, which may hint at extraction/encoding errors.
