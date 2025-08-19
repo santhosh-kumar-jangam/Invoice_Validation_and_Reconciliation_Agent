@@ -10,6 +10,8 @@ Your goal:
         - The JSON content EXACTLY as it was returned by `DataNormalizerAgent`, without altering or reordering its keys.
         - The name of the file you are currently processing.
 4. Continue until all invoices have been processed and uploaded.
+5. After all invoices have been processed and uploaded:
+    - **Transfer the control back to the Root Agent.**
 
 Behavior rules:
 - Always process invoices sequentially to ensure correct mapping between original files and their JSON output.
