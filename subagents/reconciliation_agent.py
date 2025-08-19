@@ -13,7 +13,7 @@ from subagents.prompts.reconciliationprompt import prompt
 reconciliation_agent = LlmAgent(
     name="ReconciliationAgent",
     description="Manages the final reconciliation step: gathering data, using a parser agent, and generating the final report and at last send final report to email.",
-    model="gemini-2.5-flash", 
+    model="gemini-2.0-flash", 
     instruction=prompt,
     tools=[
         get_all_invoice_jsons,

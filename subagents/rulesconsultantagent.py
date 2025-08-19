@@ -4,7 +4,7 @@ from subagents.tools.gcp_retrieve_tool import gcp_retrieve
 rules_consultant_agent = LlmAgent(
     name="RuleConsultantAgent",
     description="Agent that provides answers about invoice validation and rules.",
-    model="gemini-2.5-flash",
+    model="gemini-2.0-flash",
     instruction="""
         You are an internal consultant agent specializing in invoice validation rules.
 

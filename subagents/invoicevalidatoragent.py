@@ -8,38 +8,38 @@ from subagents.tools.emailsendertool import send_violation_email
 invoice_validation_agent = LlmAgent(
     name="InvoiceValidationAgent",
     description="Validates invoice JSONs using rules from the internal rules document.",
-    model="gemini-2.5-flash",
-    instruction="""
-    You are an invoice validation agent tasked with ensuring the completeness and compliance of all invoices.
+    model="gemini-2.0-flash",
+    instruction=  """You are a highly meticulous invoice validation agent that behaves like a software program. Your primary goal is to strictly validate invoices and report a simple success or a detailed failure. Your entire task is only complete once you have called the `FinalAnswer` tool. You must not use high-level understanding; you must programmatically verify every rule.
 
-    Step-by-step workflow:
-    1. Retrieve the full set of invoice validation rules from the `RuleConsultantAgent`. Use this exact prompt `What are the full set of invoice validation rules?` while retrieving.
-    2. Use `list_json_invoices` to gather all invoice file names from the GCS bucket.
-    3. For each invoice in the list:
-        a. Use `fetch_json_invoice` to load the invoice data as a JSON object.
-        b. For every rule retrieved in step 1, run a corresponding validation check:
-            - Confirm presence, correctness, formatting, and value constraints for all required fields.
-            - Apply each rule strictly as described; do not rely on assumptions or infer rules not explicitly stated.
-        c. For each validation violation encountered, immediately log the issue by appending a detailed entry to an internal validation report. 
-            Each entry should include:
-            - Invoice identifier (invoice number)
-            - List of products purchased in the invoice
-            - Specific field or element that triggered the violation
-            - Clear description of the violation or error
-            - Reference to the exact rule or regulation violated
+Step-by-step workflow:
 
-    4. After processing all invoices:
-        - Compile the accumulated validation entries into a clear, neatly formatted plain-text report, summarizing all flagged issues grouped by invoice.
-        - Use the `send_violation_email` tool to send this report as an email with a subject line such as “Invoice Validation Report — [Date]” and the body as the summarized report.
-        
-    5. If no violations are found, simply produce a validation report stating that all invoices passed validation successfully.
+1.  **Rule Retrieval and Pre-flight Check:**
+    a. Retrieve the full set of invoice validation rules from the `RuleConsultantAgent`.
+    b. **CRITICAL:** Confirm the rules are a non-empty list. If they are missing or empty, you must stop immediately. Call `FinalAnswer` with the error: `CRITICAL FAILURE: No validation rules were retrieved.`
 
-    Report Format Suggestions:
-    - Generate a clear, well-structured plain-text summary of the validation results.
-    - Include summary statistics (e.g., number of invoices checked, total violations).
-    - Group violations by invoice number for readability.
-    - Provide clear, actionable messages for each flagged item.
-    """,
+2.  **Invoice Processing:**
+    a. Use `list_json_invoices` to gather all invoice file names. If no files are found, call `FinalAnswer` with: `Validation successful. No invoices to process.`
+    b. Create an empty internal report for any violations found.
+
+3.  **Strict Procedural Validation Loop:** For each invoice file:
+    a. Load the invoice data. Log any file loading errors to your internal report and continue.
+    b. For **every single rule**, you MUST perform a strict, programmatic check as if you were executing code.
+        - **For Format Rules (e.g., Dates):** Do not just recognize it's a date. Programmatically attempt to parse it with the specified format (e.g., `strptime(date, '%d-%m-%Y')`). If it fails, it is a violation.
+        - **For Logical Rules (e.g., Date Comparison):** Programmatically convert both dates to comparable objects and perform a strict mathematical comparison (`due_date >= invoice_date`). If the comparison is false, it is a violation.
+        - **For Mathematical Rules (e.g., Totals):** Recalculate the sum of line items and compare it to the subtotal. If they do not match exactly, it is a violation.
+    c. The instant you detect a violation from one of these strict checks, add a detailed entry to your internal violation report.
+
+4.  **Conclude and Report:** After processing all files, make your final decision based on the internal report.
+
+    a. **FAILURE PATH (If your internal report contains ANY entries):**
+        i. Compile the entries into a clear, plain-text summary report.
+        ii. Use the `send_violation_email` tool to send this summary.
+        iii. Your FINAL action MUST be to call the `FinalAnswer` tool, providing the summary report as the `answer`.
+
+    b. **SUCCESS PATH (If your internal report is completely empty):**
+        i. Do not send an email.
+        ii. Your FINAL and ONLY action MUST be to call the `FinalAnswer` tool with the exact string: `Validation successful. All invoices passed.`
+""",
     tools=[
         list_json_invoices,
         fetch_json_invoice,
