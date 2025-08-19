@@ -24,7 +24,7 @@ GCP_CREDENTIALS_PATH = os.getenv("gcp_credentials_path")
 
 # --- Initialization ---
 # Initialize FastAPI app with a more descriptive title
-app = FastAPI()
+app = FastAPI(title="Multi-Bucket PDF Upload Service")
 
 # Initialize Google Cloud Storage client
 storage_client = None
@@ -116,14 +116,14 @@ async def _upload_file_to_gcs(file: UploadFile, bucket_name: str):
         )
 
 
-@app.post("/upload-bank-statement/", tags=["Bank Statements"])
+@app.post("api/upload/bankstatement", tags=["Bank Statements"])
 async def upload_bank_statement(file: UploadFile = File(...)):
     """
     Accepts a bank statement PDF and uploads it to the bank statements bucket.
     """
     return await _upload_file_to_gcs(file=file, bucket_name=BANK_STATEMENT_BUCKET)
 
-@app.post("/upload-invoice/", tags=["Invoices"])
+@app.post("/api/upload/invoice", tags=["Invoices"])
 async def upload_invoice(file: UploadFile = File(...)):
     """
     Accepts an invoice PDF and uploads it to the invoices bucket.
@@ -131,7 +131,7 @@ async def upload_invoice(file: UploadFile = File(...)):
     return await _upload_file_to_gcs(file=file, bucket_name=INVOICE_BUCKET)
 
 
-@app.post("/reconciliate")
+@app.post("/api/run")
 async def run_reconciliation_agent():
     try:
         APP_NAME = "reconciliation"
