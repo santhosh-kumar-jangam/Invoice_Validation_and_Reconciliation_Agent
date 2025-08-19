@@ -24,7 +24,7 @@ GCP_CREDENTIALS_PATH = os.getenv("gcp_credentials_path")
 
 # --- Initialization ---
 # Initialize FastAPI app with a more descriptive title
-app = FastAPI(title="Multi-Bucket PDF Upload Service")
+app = FastAPI()
 
 # Initialize Google Cloud Storage client
 storage_client = None
