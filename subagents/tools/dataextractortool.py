@@ -83,7 +83,54 @@ def extract_invoice_content(file_name: str) -> Dict[str, Any]:
 
     except Exception as e:
         return {"success": False, "data": None, "error": str(e)}
+    
+def list_json_invoices() -> Dict[str, Any]:
+    """
+    Lists all invoice file names from the source Google Cloud Storage (GCS) bucket.
 
+    Returns a status dictionary with:
+        - "success" (bool): True if invoices were listed successfully, False otherwise.
+        - "data" (List[str] or None): The list of invoice blob names, or None on failure.
+        - "error" (str or None): Error message if failure occurred.
+    """
+    try:
+        service_account_key_path = os.getenv("gcp_credentials_path")
+        bucket_name = os.getenv("TARGET_BUCKET")
+
+        client = Client.from_service_account_json(service_account_key_path)
+        bucket = client.bucket(bucket_name)
+        
+        blobs = bucket.list_blobs()
+        files = [blob.name for blob in blobs]
+
+        return {"success": True, "data": files, "error": None}
+
+    except Exception as e:
+        return {"success": False, "data": None, "error": str(e)}
+    
+def fetch_json_invoice(file_name: str) -> Dict[str, Any]:
+    """
+    Downloads and parses an invoice JSON file from the GCS bucket.
+
+    Args:
+        file_name (str): The name of the JSON invoice file in the bucket.
+
+    Returns:
+        Dict[str, Any]: A status dictionary with 'success' (bool), 'data' (invoice dict or None), and 'error' (str or None).
+    """
+    try:
+        service_account_key_path = os.getenv("gcp_credentials_path")
+        bucket_name = os.getenv("TARGET_BUCKET")
+        
+        client = Client.from_service_account_json(service_account_key_path)
+        bucket = client.bucket(bucket_name)
+        blob = bucket.blob(file_name)
+
+        content = json.loads(blob.download_as_string())
+
+        return {"success": True, "data": content, "error": None}
+    except Exception as e:
+        return {"success": False, "data": None, "error": str(e)}
 
 def upload_json_to_gcs(json_content: dict, file_name: str) -> Dict[str, Any]:
     """

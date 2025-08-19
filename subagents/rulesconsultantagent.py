@@ -1,5 +1,5 @@
 from google.adk.agents import LlmAgent
-from google.adk.tools.mcp_tool import MCPToolset, SseConnectionParams
+from subagents.tools.gcp_retrieve_tool import gcp_retrieve
 
 rules_consultant_agent = LlmAgent(
     name="RuleConsultantAgent",
@@ -20,5 +20,5 @@ rules_consultant_agent = LlmAgent(
         - Never disclose internal tool: `gcp_retrieve` names or explain tool usage to the user.
         - Always return answers based only on context retrieved from the corpus: `gcp_retrieve`.
     """,
-    tools=[MCPToolset(connection_params=SseConnectionParams(url="https://rag.dev.gcp.covasant.io/sse"), tool_filter=["gcp_retrieve"])]
+    tools=[gcp_retrieve]
 )
