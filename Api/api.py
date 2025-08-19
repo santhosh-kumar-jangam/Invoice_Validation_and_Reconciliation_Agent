@@ -116,7 +116,7 @@ async def _upload_file_to_gcs(file: UploadFile, bucket_name: str):
         )
 
 
-@app.post("api/upload/bankstatement", tags=["Bank Statements"])
+@app.post("/api/upload/bankstatement", tags=["Bank Statements"])
 async def upload_bank_statement(file: UploadFile = File(...)):
     """
     Accepts a bank statement PDF and uploads it to the bank statements bucket.
@@ -203,7 +203,7 @@ async def run_reconciliation_agent():
                     run_id,
                     result_item.get("invoice_number"),
                     result_item.get("vendor_name"),
-                    result_item.get("claimed_total"),
+                    result_item.get("total_amount"),
                     payment_dates_to_insert,     # Use the processed string value
                     transaction_ids_to_insert,   # Use the processed string value
                     amount_paid_to_insert,
@@ -219,7 +219,9 @@ async def run_reconciliation_agent():
                         status, verdict, conclusion
                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, data_to_insert)
- 
+
+                conn.commit()
+
         return full_json_object
 
     except Exception as e:
@@ -307,6 +309,58 @@ def get_transactions():
         raise HTTPException(
             status_code=500,
             detail=f"Database error: {e}"
+        )
+    except Exception as e:
+        # Handle other unexpected errors
+        raise HTTPException(
+            status_code=500,
+            detail=f"An unexpected error occurred: {e}"
+        )
+
+@app.get("/api/report/{runId}")
+def get_report_by_run_id(runId: str):
+    """
+    Retrieves all reconciliation results associated with a specific run ID.
+    """
+    try:
+        # Assumes DB_PATH is set in your .env file
+        db_path = os.getenv("DB_PATH")
+        with sqlite3.connect(db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            
+            # Query to fetch all results for the given run_id
+            query = """
+                SELECT 
+                    run_id, invoice_number, vendor_name, claimed_total, 
+                    payment_dates, transaction_ids, amount_paid, 
+                    status, verdict, conclusion, processed_at
+                FROM 
+                    reconciliation_results 
+                WHERE 
+                    run_id = ?
+            """
+            
+            cursor.execute(query, (runId,))
+            results = cursor.fetchall()
+            
+            # If the query returns no results, the run ID was not found
+            if not results:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"No report found for run ID: {runId}"
+                )
+            
+            # Convert the database rows into a list of dictionaries for the JSON response
+            report_items = [dict(row) for row in results]
+            
+            return report_items
+
+    except sqlite3.Error as e:
+        # Handle database-specific errors
+        raise HTTPException(
+            status_code=500,
+            detail=f"Database query failed: {e}"
         )
     except Exception as e:
         # Handle other unexpected errors
