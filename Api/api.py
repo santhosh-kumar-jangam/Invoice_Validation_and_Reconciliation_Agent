@@ -1,14 +1,15 @@
 # main.py
 import os
 import sqlite3, re, json, uuid
-from fastapi import FastAPI, File, UploadFile, HTTPException
+from fastapi import FastAPI, File, UploadFile, HTTPException, Depends
+from fastapi.middleware.cors import CORSMiddleware
 from google.cloud import storage
 from google.api_core import exceptions
 
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 from google.genai.types import Content, Part
-
+from typing import List
 from rootagent.agent import root_agent
 from dotenv import load_dotenv
 import json
@@ -26,6 +27,12 @@ GCP_CREDENTIALS_PATH = os.getenv("gcp_credentials_path")
 # Initialize FastAPI app with a more descriptive title
 app = FastAPI(title="Multi-Bucket PDF Upload Service")
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allow all origins
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 # Initialize Google Cloud Storage client
 storage_client = None
 try:
@@ -230,6 +237,83 @@ async def run_reconciliation_agent():
             detail=f"An internal error occurred while running the agent: {str(e)}"
         )
     
+def get_db_connection():
+    """Opens a new database connection and closes it when done."""
+    try:
+        DATABASE_PATH = os.getenv("DB_PATH", "database.db")
+        conn = sqlite3.connect(DATABASE_PATH)
+        # This makes the results behave like dictionaries (e.g., row['column_name'])
+        conn.row_factory = sqlite3.Row 
+        yield conn
+    except sqlite3.Error as e:
+        # If the database file can't be opened, raise an HTTP exception.
+        raise HTTPException(status_code=500, detail=f"Database connection error: {e}")
+    finally:
+        if 'conn' in locals() and conn:
+            conn.close()
+
+@app.get(
+    "/run-ids",
+    response_model=List[str],
+    summary="Get All Unique Run IDs",
+    tags=["Reconciliation"]
+)
+def get_all_run_ids(conn: sqlite3.Connection = Depends(get_db_connection)):
+    """
+    Retrieves a list of all unique `run_id`s from the
+    `reconciliation_results` table by executing a raw SQL command.
+    """
+    try:
+        cursor = conn.cursor()
+        
+        # The raw SQL command
+        sql_command = "SELECT DISTINCT run_id FROM reconciliation_results"
+        
+        cursor.execute(sql_command)
+        
+        # fetchall() returns a list of row objects.
+        # This list comprehension efficiently extracts the 'run_id' from each row.
+        results = cursor.fetchall()
+        run_ids = [row["run_id"] for row in results]
+        
+        return run_ids
+    except sqlite3.OperationalError as e:
+        # This error typically means the table doesn't exist.
+        raise HTTPException(
+            status_code=500, 
+            detail=f"SQL Error: {e}."
+        )
+    
+@app.get(
+    "/run-reports"
+)
+def get_all_run_reports(conn: sqlite3.Connection = Depends(get_db_connection)):
+    """
+    Retrieves a list of all runs from the
+    `reconciliation_results` table by executing a raw SQL command.
+    """
+    try:
+        cursor = conn.cursor()
+        
+        # The raw SQL command
+        sql_command = "SELECT * FROM reconciliation_results"
+        
+        cursor.execute(sql_command)
+        
+        # fetchall() returns a list of row objects.
+        # This list comprehension efficiently extracts the 'run_id' from each row.
+        results = cursor.fetchall()
+        run_reports = [row for row in results]
+        
+        return run_reports
+    except sqlite3.OperationalError as e:
+        # This error typically means the table doesn't exist.
+        raise HTTPException(
+            status_code=500, 
+            detail=f"SQL Error: {e}."
+        )
+    
+
 @app.get("/api/invoices")
 def get_invoices():
     try:

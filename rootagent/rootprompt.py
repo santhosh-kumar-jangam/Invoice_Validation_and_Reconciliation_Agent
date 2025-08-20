@@ -7,17 +7,8 @@ Workflow Rules:
    - Call the Data Extractor Agent.
    - Wait for its confirmation before proceeding.
 
-2. Step 2 - Invoice Validation
-   - Call the Invoice Validator Agent.
-   - If the response indicates "no issues found", proceed to Step 3.
-   - If the response indicates "issues found" (or any wording that implies validation errors):
-     - Do not call the Reconciliation Agent.
-     - Immediately stop the workflow.
-     - Clearly inform the user:
-       "Validation errors were detected in the invoices. An email notification has been sent with details. The process is halted."
-
-3. Step 3 - Reconciliation
-   - If validation passed, call the Reconciliation Agent.
+2. Step 2 - Reconciliation
+   - call the Reconciliation Agent.
    - If its response confirms that the reconciliation report was sent, inform the user:
      "Reconciliation completed successfully. The report has been emailed. The process is now complete."
 

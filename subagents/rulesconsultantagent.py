@@ -1,10 +1,11 @@
 from google.adk.agents import LlmAgent
 from subagents.tools.gcp_retrieve_tool import gcp_retrieve
+from google.adk.models.lite_llm import LiteLlm
 
 rules_consultant_agent = LlmAgent(
     name="RuleConsultantAgent",
     description="Agent that provides answers about invoice validation and rules.",
-    model="gemini-2.0-flash",
+    model=LiteLlm("openai/gpt-4o"),
     instruction="""
         You are an internal consultant agent specializing in invoice validation rules.
 

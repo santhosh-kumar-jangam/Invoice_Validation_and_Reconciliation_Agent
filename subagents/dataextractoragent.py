@@ -1,5 +1,6 @@
 from google.adk.agents import LlmAgent
 from google.adk.tools.agent_tool import AgentTool
+from google.adk.models.lite_llm import LiteLlm
 from subagents.datanormalizeragent import data_normalizer_agent
 from subagents.prompts.dataextractorprompt import prompt
 from subagents.tools.dataextractortool import list_gcs_invoices, extract_invoice_content, upload_json_to_gcs
@@ -7,7 +8,7 @@ from subagents.tools.dataextractortool import list_gcs_invoices, extract_invoice
 data_extractor_agent = LlmAgent(
     name="DataExtractorAgent",
     description="Accesses the invoices from the cloud and extracts the info into a json object",
-    model="gemini-2.0-flash",
+    model=LiteLlm("openai/gpt-4o"),
     instruction=prompt,
     tools=[list_gcs_invoices, extract_invoice_content, AgentTool(agent=data_normalizer_agent), upload_json_to_gcs]
 )
