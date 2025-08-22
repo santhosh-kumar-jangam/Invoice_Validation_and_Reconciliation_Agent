@@ -20,20 +20,20 @@ JSON Schema to follow:
     {
       "product_name": "string",
       "description": "string or null",
-      "quantity": "integer or null",
-      "unit_price": "float or null",
-      "total": "float or null"
+      "quantity": "string or null",
+      "unit_price": "string or null",
+      "total": "string or null"
     }
   ],
-  "subtotal": "float or null",
+  "subtotal": "string or null",
   "tax_breakdown": [
     {
       "type": "string",
-      "rate": "float or null",
-      "amount": "float or null"
+      "rate": "string or null",
+      "amount": "string or null"
     }
   ],
-  "total_amount": "float or null",
+  "total_amount": "string or null",
   "currency": "string (ISO code, e.g. INR)",
   "bank_details": {
     "bank_name": "string or null",

@@ -7,6 +7,5 @@ bank_statement_parser_agent = LlmAgent(
     name="BankStatementParserAgent",
     description="Takes raw text from a bank statement and extracts transaction data into a structured JSON format.",
     model=LiteLlm("openai/gpt-4o"),
-    instruction=prompt,
-    tools=[save_bank_transactions_tool]
+    instruction=prompt
 )

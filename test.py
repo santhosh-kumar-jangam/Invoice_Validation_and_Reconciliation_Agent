@@ -1,50 +1,36 @@
-# test_db.py
-from subagents.tools.database_tools import save_bank_transactions_tool # Assumes the function is in database_tools.py
+import sqlite3
 
-print("--- RUNNING STANDALONE DATABASE TEST ---")
+# Connect to (or create) the SQLite database
+conn = sqlite3.connect('database.db')
+cursor = conn.cursor()
 
-# SCENARIO 1: A PERFECTLY VALID JSON STRING
-print("\n--- [TEST 1: Valid Data] ---")
-valid_json_data = """
-{
-    "transactions": [
-        {
-            "date": "25-12-2025",
-            "transaction_id": "TXN-VALID-001",
-            "invoice_number": "INV-VALID-001",
-            "debit_amount": "1,500.50",
-            "description": "Payment for valid invoice"
-        },
-        {
-            "date": "26-12-2025",
-            "transaction_id": "TXN-VALID-002",
-            "invoice_number": "INV-VALID-002",
-            "debit_amount": "3000",
-            "description": "Another valid payment"
-        }
-    ]
-}
-"""
-result1 = save_bank_transactions_tool(valid_json_data)
-print(f"\nRESULT 1: {result1}")
-print("---------------------------------")
+# cursor.execute("drop table events")
+# cursor.execute("drop table user_states")
+# cursor.execute("drop table sessions")
 
 
-# SCENARIO 2: A JSON STRING WITH A BAD DATE FORMAT
-print("\n--- [TEST 2: Invalid Date] ---")
-invalid_date_json = """
-{
-    "transactions": [
-        {
-            "date": "2025-12-27",  # WRONG FORMAT! Should be DD-MM-YYYY
-            "transaction_id": "TXN-BAD-DATE-001",
-            "invoice_number": "INV-BAD-DATE-001",
-            "debit_amount": "100.00",
-            "description": "This will fail"
-        }
-    ]
-}
-"""
-result2 = save_bank_transactions_tool(invalid_date_json)
-print(f"\nRESULT 2: {result2}")
-print("---------------------------------")
+# # Create the RunSessions table
+cursor.execute("delete from runsessions")
+# cursor.execute('''
+#     CREATE TABLE IF NOT EXISTS runsessions (
+#         runID TEXT PRIMARY KEY,
+#         sessionID TEXT NOT NULL
+#     )
+# ''')
+
+# # Insert a sample session
+# cursor.execute('''
+#     INSERT INTO RunSessions (SessionID) VALUES (?)
+# ''', ('session_abc123',))
+
+# Commit changes
+conn.commit()
+
+# # Retrieve and display all records
+# cursor.execute('SELECT * FROM RunSessions')
+# rows = cursor.fetchall()
+# for row in rows:
+#     print(f'RunID: {row[0]}, SessionID: {row[1]}')
+
+# Close the connection
+conn.close()

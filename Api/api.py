@@ -7,7 +7,7 @@ from google.cloud import storage
 from google.api_core import exceptions
 
 from google.adk.runners import Runner
-from google.adk.sessions import InMemorySessionService
+from google.adk.sessions import DatabaseSessionService
 from google.genai.types import Content, Part
 from typing import List
 from rootagent.agent import root_agent
@@ -143,7 +143,7 @@ async def run_reconciliation_agent():
     try:
         APP_NAME = "reconciliation"
         USER_ID = "user1"
-        session_service = InMemorySessionService()
+        session_service = DatabaseSessionService(db_url="sqlite:///C:/Users/Santhosh/Desktop/yashwanthversion/sessions.db")
         runner = Runner(agent=root_agent, app_name=APP_NAME, session_service=session_service)
         session = await session_service.create_session(app_name=APP_NAME, user_id=USER_ID)
         content = Content(role='user', parts=[Part(text="Run the Reconciliation pipeline")])
@@ -163,80 +163,22 @@ async def run_reconciliation_agent():
         except ValueError as e:
             raise HTTPException(status_code=500, detail=f"Could not parse JSON from agent response. Error: {e}")
         
-        # --- MODIFIED SECTION START ---
-
-        full_json_object = clean_json_response
-
-        print("***********8888888888888888888")
-        print(full_json_object)
-        print("***********8888888888888888888")
-
-        results_list = full_json_object.get("audit_report", []) # Use .get with a default value
- 
         db_path = os.getenv("DB_PATH")
         run_id = str(uuid.uuid4())
- 
+
         with sqlite3.connect(db_path) as conn:
             cursor = conn.cursor()
-           
-            for result_item in results_list:
-                # Prepare payment dates for insertion
-                payment_dates_val = result_item.get("payment_date")
-                if isinstance(payment_dates_val, list):
-                    # If it's a list, join it into a comma-separated string
-                    payment_dates_to_insert = ", ".join(map(str, payment_dates_val))
-                elif payment_dates_val == "N/A":
-                    # If it's the string "N/A", store it as NULL in the database
-                    payment_dates_to_insert = None
-                else:
-                    # Otherwise, use the value as is (it's likely a string or None)
-                    payment_dates_to_insert = payment_dates_val
-                
-                # Prepare transaction IDs for insertion (same logic)
-                transaction_ids_val = result_item.get("transaction_id")
-                if isinstance(transaction_ids_val, list):
-                    transaction_ids_to_insert = ", ".join(map(str, transaction_ids_val))
-                elif transaction_ids_val == "N/A":
-                    transaction_ids_to_insert = None
-                else:
-                    transaction_ids_to_insert = transaction_ids_val
 
-                # Prepare amount paid, handling "N/A"
-                amount_paid_value = result_item.get("amount_paid")
-                amount_paid_to_insert = None if amount_paid_value == "N/A" else amount_paid_value
+            cursor.execute("INSERT INTO runsessions VALUES (?,?)",(run_id, session.id))
 
-                # Build the final tuple for insertion
-                data_to_insert = (
-                    run_id,
-                    result_item.get("invoice_number"),
-                    result_item.get("vendor_name"),
-                    result_item.get("total_amount"),
-                    payment_dates_to_insert,     # Use the processed string value
-                    transaction_ids_to_insert,   # Use the processed string value
-                    amount_paid_to_insert,
-                    result_item.get("status"),
-                    result_item.get("verdict"),
-                    result_item.get("conclusion")
-                )
-               
-                cursor.execute("""
-                    INSERT INTO reconciliation_results (
-                        run_id, invoice_number, vendor_name, claimed_total,
-                        payment_dates, transaction_ids, amount_paid,
-                        status, verdict, conclusion
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, data_to_insert)
-
-                conn.commit()
-
-        return full_json_object
+        return clean_json_response
 
     except Exception as e:
         raise HTTPException(
             status_code=500,
             detail=f"An internal error occurred while running the agent: {str(e)}"
         )
-    
+
 def get_db_connection():
     """Opens a new database connection and closes it when done."""
     try:
@@ -287,32 +229,66 @@ def get_all_run_ids(conn: sqlite3.Connection = Depends(get_db_connection)):
 @app.get(
     "/run-reports"
 )
-def get_all_run_reports(conn: sqlite3.Connection = Depends(get_db_connection)):
+def get_all_run_reports():
     """
     Retrieves a list of all runs from the
     `reconciliation_results` table by executing a raw SQL command.
     """
+    reports = []
+    db1_conn = None
+    db2_conn = None
     try:
-        cursor = conn.cursor()
+        DB1_PATH = os.getenv("DB_PATH")
+        db1_conn = sqlite3.connect(DB1_PATH)
+        db1_conn.row_factory = sqlite3.Row
+        db1_cursor = db1_conn.cursor()
+
+        # Connection to sessions.db to get event details
+        DB2_PATH = os.getenv("SESSIONS_DB_PATH")
+        db2_conn = sqlite3.connect(DB2_PATH)
+        db1_conn.row_factory = sqlite3.Row
+        db2_cursor = db2_conn.cursor()
+
+        # Get all run_id and session_id pairs
+        db1_cursor.execute("SELECT runID, sessionID FROM runsessions")
+        all_runs = db1_cursor.fetchall()
+
+         # Iterate through each run and find its latest event
+        for run in all_runs:
+            run_id = run['runID']
+            session_id = run['sessionID']
+
+            query = """
+                SELECT content FROM events 
+                WHERE session_id = ?
+                ORDER BY timestamp DESC
+                LIMIT 1
+            """
+            
+            db2_cursor.execute(query, (session_id,))
+            latest_content = db2_cursor.fetchone()
+
+            content_data = json.loads(latest_content[0])
+
+            if content_data:
+                text = json.loads(content_data["parts"][0]["text"])
+                audit_reports = text["audit_report"]
+
+                reports.append({
+                "run_id": run_id,
+                "audit_report": audit_reports
+                })
+
+        return reports
+
+    except Exception as e:
+        return {"error": str(e)}
         
-        # The raw SQL command
-        sql_command = "SELECT * FROM reconciliation_results"
-        
-        cursor.execute(sql_command)
-        
-        # fetchall() returns a list of row objects.
-        # This list comprehension efficiently extracts the 'run_id' from each row.
-        results = cursor.fetchall()
-        run_reports = [row for row in results]
-        
-        return run_reports
-    except sqlite3.OperationalError as e:
-        # This error typically means the table doesn't exist.
-        raise HTTPException(
-            status_code=500, 
-            detail=f"SQL Error: {e}."
-        )
-    
+    finally:
+        if db1_conn:
+            db1_conn.close()
+        if db2_conn:
+            db2_conn.close()
 
 @app.get("/api/invoices")
 def get_invoices():
