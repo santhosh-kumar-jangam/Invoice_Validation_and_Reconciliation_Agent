@@ -1,47 +1,64 @@
-# subagents/tools/reconciliation_tools.py
-import os, io, json
-from google.cloud.storage import Client
-import pdfplumber
-from datetime import datetime 
+# subagents/tools/parser.py
 import re
-from dotenv import load_dotenv
-load_dotenv()
+from datetime import datetime
 
-def get_all_invoice_jsons() -> str:
-    """
-    Finds all processed invoice JSON files and returns them as a single JSON list string.
-    """
-    print("--- [Tool] Fetching all processed invoice JSONs... ---")
-    try:
-        client = Client.from_service_account_json(os.getenv("gcp_credentials_path"))
-        bucket = client.bucket(os.getenv("TARGET_BUCKET"))
-        blobs = [b for b in bucket.list_blobs() if b.name.endswith('.json')]
-        if not blobs: return "[]"
-        all_invoices = [json.loads(blob.download_as_string()) for blob in blobs]
-        return json.dumps(all_invoices)
-    except Exception as e:
-        return f'{{"error": "Error fetching invoice JSONs: {str(e)}"}}'
+def parse_date(date_string: str) -> str | None:
+    """Tries to parse a date string from various common formats."""
+    if not date_string:
+        return None
+    date_string = date_string.strip()
+    formats_to_try = [
+        '%d-%m-%Y', '%m-%d-%Y', '%Y-%m-%d',
+        '%b %d, %Y', '%B %d, %Y',
+        '%d %b %Y', '%d %B %Y'
+    ]
+    for fmt in formats_to_try:
+        try:
+            return datetime.strptime(date_string, fmt).strftime('%Y-%m-%d')
+        except ValueError:
+            continue
+    print(f"Warning: Could not parse date '{date_string}' with known formats.")
+    return None
 
-def extract_text_from_bank_statement() -> str:
+def extract_invoice_data_from_text(text: str) -> dict:
     """
-    Finds the bank statement in GCS, extracts all text, and returns it as a string.
+    Extracts invoice details from raw text using precise, label-based regex.
     """
-    print("--- [Tool] Extracting text from bank statement PDF... ---")
-    try:
-        client = Client.from_service_account_json(os.getenv("gcp_credentials_path"))
-        bucket = client.bucket(os.getenv("BANK_STATEMENT_BUCKET"))
-        blobs = list(bucket.list_blobs())
-        if not blobs: return "Error: No bank statement file found."
+    data = {
+        "invoice_number": None, "vendor_name": None, "client_name": None,
+        "invoice_date": None, "due_date": None, "total_amount": None,
+    }
+
+    patterns = {
+        "invoice_number": r"(?i)Invoice Number[:\s]+([A-Z0-9-/]+)",
+        "vendor_name":    r"(?i)^Vendor[:\s]+(.*?)\n",
+        "client_name":    r"(?i)^Client[:\s]+(.*?)\n",
+        "invoice_date":   r"(?i)Invoice Date[:\s]+([\d-]+)",
+        "due_date":       r"(?i)Due Date[:\s]+([\d-]+)",
+        "total_amount":   r"(?i)Total Amount\s*₹?\s*([\d,]+\.\d{2})",
+    }
+
+    for key, pattern in patterns.items():
         
-        content = blobs[0].download_as_bytes()
-        full_text = ""
-        with pdfplumber.open(io.BytesIO(content)) as pdf:
-            for page in pdf.pages:
-                page_text = page.extract_text()
-                if page_text: full_text += page_text + "\n"
-        return full_text.strip()
-    except Exception as e:
-        return f"Error extracting text from PDF: {str(e)}"
+        match = re.search(pattern, text, re.MULTILINE)
+        if match:
+            raw_value = match.group(1).strip() if match.group(1) else None
+            
+            if not raw_value:
+                continue
+
+            if "date" in key:
+                data[key] = parse_date(raw_value)
+            elif "amount" in key:
+                try:
+                    data[key] = float(raw_value.replace(",", ""))
+                except ValueError:
+                    print(f"Warning: Could not convert amount '{raw_value}' to a number.")
+            else:
+                data[key] = raw_value.strip()
+                
+    return data
+
 def parse_bank_statement_text(bank_statement_text: str) -> dict:
     """
     Parses raw text from a bank statement to extract transaction details.
@@ -96,5 +113,6 @@ def parse_bank_statement_text(bank_statement_text: str) -> dict:
                 print(f"Skipping malformed line: '{line}'. Error: {e}")
 
     return {"transactions": transactions}
+
 
 

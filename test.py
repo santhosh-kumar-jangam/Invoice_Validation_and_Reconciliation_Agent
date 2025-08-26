@@ -10,7 +10,7 @@ cursor = conn.cursor()
 
 
 # # Create the RunSessions table
-cursor.execute("delete from runsessions")
+cursor.execute("delete from invoices")
 # cursor.execute('''
 #     CREATE TABLE IF NOT EXISTS runsessions (
 #         runID TEXT PRIMARY KEY,
